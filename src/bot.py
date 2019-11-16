@@ -29,7 +29,7 @@ OK_RESPONSE = {
 }
 ERROR_RESPONSE = {"statusCode": 400, "body": json.dumps("Oops, something went wrong!")}
 
-BOT_USERMAME = os.environ.get("BOT_USERMAME")
+BOT_USERNAME = os.environ.get("BOT_USERNAME")
 
 STORAGE_CHAT_ID = os.environ.get("STORAGE_CHAT_ID")
 
@@ -79,7 +79,7 @@ def start(update: Update, context: dict) -> None:
     text = (
         "Send `/monkey {text}` to get a custom monkey gif. \n"
         "You can also use me as an inline bot in any chat "
-        f"by typing `@{BOT_USERMAME} text`"
+        f"by typing `@{BOT_USERNAME} text`"
     )
 
     bot.send_message(

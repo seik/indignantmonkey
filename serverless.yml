@@ -19,7 +19,7 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'eu-west-3'}
   environment:
-    BOT_USERMAME: indignantmonkeybot
+    BOT_USERNAME: indignantmonkeybot
     STORAGE_CHAT_ID: ${env:STORAGE_CHAT_ID}
     TELEGRAM_TOKEN: ${env:TELEGRAM_TOKEN}
 
