@@ -14,6 +14,8 @@ from telegram import (
 )
 from telegram.ext import Dispatcher, CommandHandler, InlineQueryHandler
 
+from src.image_utils import text_wrap
+
 logger = logging.getLogger()
 if logger.handlers:
     for handler in logger.handlers:
@@ -32,7 +34,6 @@ BOT_USERMAME = os.environ.get("BOT_USERMAME")
 STORAGE_CHAT_ID = os.environ.get("STORAGE_CHAT_ID")
 
 MONKEY_IMAGE_PATH = "src/statics/monkey.gif"
-MONKEY_IMAGE_WIDTH = 333
 
 FONT_PATH = "src/statics/font.ttf"
 
@@ -111,14 +112,14 @@ def inline_monkey(update, context):
 
 def send_monkey(chat_id: int, text: Union[str, None] = None) -> Message:
     if text:
-        monkey_image = get_monkey_bytes(text)
+        monkey_image = get_monkey_text_bytes(text)
     else:
         monkey_image = open(MONKEY_IMAGE_PATH, "rb")
 
     return bot.send_animation(chat_id=chat_id, animation=monkey_image)
 
 
-def get_monkey_bytes(text) -> Union[io.BytesIO, BinaryIO]:
+def get_monkey_text_bytes(text) -> Union[io.BytesIO, BinaryIO]:
     image = Image.open(MONKEY_IMAGE_PATH)
     frames = []
     for frame in ImageSequence.Iterator(image):
@@ -126,14 +127,22 @@ def get_monkey_bytes(text) -> Union[io.BytesIO, BinaryIO]:
         image_draw = ImageDraw.Draw(frame)
         font = ImageFont.truetype(FONT_PATH, size=30)
 
-        w, _ = image_draw.textsize(text, font=font)
-        image_draw.text(
-            (((MONKEY_IMAGE_WIDTH - w) / 2), 216),
-            text,
-            font=font,
-            fill=(255, 255, 255),
-        )
-        del image_draw
+        # Divide lines by text width
+        lines = text_wrap(text, font, image.size[0])
+        # Get line height with a plus
+        line_height = font.getsize("hg")[1] + 5
+
+        # Get the starting y point for the first line
+        y = image.size[1] - (line_height * len(lines))
+
+        for line in lines:
+            w, _ = image_draw.textsize(line, font=font)
+            image_draw.text(
+                (((image.size[0] - w) / 2), y), line, font=font, fill=(255, 255, 255),
+            )
+
+            # Increase y by line height for the next line
+            y = y + line_height
 
         frames.append(frame)
 
