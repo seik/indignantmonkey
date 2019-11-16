@@ -1,0 +1,38 @@
+service: indignantmonkeybot
+
+package:
+  exclude:
+    - node_modules/**
+    - .idea/**
+    - .vscode/**
+    - .env
+    - images/**
+    - README.md
+    - LICENSE
+    - package.json
+    - package-lock.json
+    - requirements.txt
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-west-3'}
+  environment:
+    BOT_USERMAME: indignantmonkeybot
+    STORAGE_CHAT_ID: ${env:STORAGE_CHAT_ID}
+    TELEGRAM_TOKEN: ${env:TELEGRAM_TOKEN}
+
+functions:
+  bot:
+    handler: src.bot.handler
+    events:
+      - http: POST /
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    slim: false
