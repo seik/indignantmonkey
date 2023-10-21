@@ -1,85 +1,82 @@
+from __future__ import annotations
 import io
-import json
 import logging
 import os
 from typing import Union, BinaryIO
 
 from PIL import Image, ImageDraw, ImageSequence, ImageFont
 from telegram import (
-    Update,
     Bot,
+    Update,
     Message,
     InlineQueryResultCachedGif,
-    ParseMode,
 )
-from telegram.ext import Updater, Dispatcher, CommandHandler, InlineQueryHandler
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    InlineQueryHandler,
+)
+from telegram.constants import ParseMode
 
 from src.image_utils import text_wrap
 
-logger = logging.getLogger()
-if logger.handlers:
-    for handler in logger.handlers:
-        logger.removeHandler(handler)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 BOT_USERNAME = os.environ.get("BOT_USERNAME")
-
 STORAGE_CHAT_ID = os.environ.get("STORAGE_CHAT_ID")
 
 MONKEY_IMAGE_PATH = "src/statics/monkey.gif"
-
 FONT_PATH = "src/statics/font.ttf"
 
 
-def start(update: Update, context: dict) -> None:
+async def start(update: Update, context: dict) -> None:
     text = (
         "Send `/monkey {text}` to get a custom monkey gif. \n"
         "You can also use me as an inline bot in any chat "
         f"by typing `@{BOT_USERNAME} text`"
     )
-
-    bot.send_message(
-        chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN
-    )
-    send_monkey(update.effective_chat.id, text="AAAAAA")
+    await update.message.reply_text(text=text, parse_mode=ParseMode.MARKDOWN)
+    await send_monkey(context.application.bot, update.effective_chat.id, text="AAAAAA")
 
 
-def error(bot, update, error):
-    logger.warn('Update "%s" caused error "%s"' % (update, error))
-
-
-def monkey(update: Update, context: dict) -> None:
+async def monkey(update: Update, context: dict) -> None:
     text = (update.effective_message.text.split(None, 1)[1:] or [None])[0]
     text = text.upper() if text else None
-    send_monkey(update.effective_chat.id, text)
+    await send_monkey(context.application.bot, update.effective_chat.id, text)
 
 
-def inline_monkey(update, context):
+async def inline_monkey(update, context):
     query = update.inline_query.query
 
     if not query:
         return
 
     results = list()
-    message = send_monkey(STORAGE_CHAT_ID, query.upper())
+    message = await send_monkey(context.application.bot, STORAGE_CHAT_ID, query.upper())
     results.append(
         InlineQueryResultCachedGif(
-            id=query.upper(), gif_file_id=message.animation.file_id,
+            id=query.upper(),
+            gif_file_id=message.animation.file_id,
         )
     )
-    context.bot.answer_inline_query(update.inline_query.id, results)
+    await context.bot.answer_inline_query(update.inline_query.id, results)
 
 
-def send_monkey(chat_id: int, text: Union[str, None] = None) -> Message:
+async def send_monkey(bot: Bot, chat_id: int, text: Union[str, None] = None) -> Message:
     if text:
         monkey_image = get_monkey_text_bytes(text)
     else:
         monkey_image = open(MONKEY_IMAGE_PATH, "rb")
 
-    return bot.send_animation(chat_id=chat_id, animation=monkey_image)
+    return await bot.send_animation(chat_id, animation=monkey_image)
 
 
-def get_monkey_text_bytes(text) -> Union[io.BytesIO, BinaryIO]:
+def get_monkey_text_bytes(text) -> io.BytesIO | BinaryIO:
     image = Image.open(MONKEY_IMAGE_PATH)
     frames = []
     for frame in ImageSequence.Iterator(image):
@@ -98,7 +95,10 @@ def get_monkey_text_bytes(text) -> Union[io.BytesIO, BinaryIO]:
         for line in lines:
             w, _ = image_draw.textsize(line, font=font)
             image_draw.text(
-                (((image.size[0] - w) / 2), y), line, font=font, fill=(255, 255, 255),
+                (((image.size[0] - w) / 2), y),
+                line,
+                font=font,
+                fill=(255, 255, 255),
             )
 
             # Increase y by line height for the next line
@@ -123,31 +123,19 @@ def get_monkey_text_bytes(text) -> Union[io.BytesIO, BinaryIO]:
 
 
 def main():
-    token = str(os.environ['TELEGRAM_TOKEN'])
+    token = str(os.environ["TELEGRAM_TOKEN"])
 
-    bot = Bot(token)
-
-    updater = Updater(bot)
-
-    dispatcher = Dispatcher(bot, None, use_context=True)
+    application = Application.builder().token(token).build()
 
     # commands
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("monkey", monkey))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("monkey", monkey))
+
     inline_caps_handler = InlineQueryHandler(inline_monkey)
-    dispatcher.add_handler(inline_caps_handler)
-    dp.add_handler(CommandHandler("shot", shot))
+    application.add_handler(inline_caps_handler)
 
-    updater.start_polling()
-
-    # log all errors
-    dp.add_error_handler(error)
-
-    # Block until the you presses Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    updater.idle()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

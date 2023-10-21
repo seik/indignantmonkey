@@ -1,8 +1,3 @@
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
-
-
 def text_wrap(text, font, max_width):
     lines = []
     # If the width of the text is smaller than image width
